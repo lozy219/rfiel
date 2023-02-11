@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const MAX_LEVEL = 19
+const MAX_LEVEL = 18
 
 var counter map[[2]float64]int
 var lcounter [MAX_LEVEL]map[[2]float64]int
