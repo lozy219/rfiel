@@ -18,9 +18,17 @@ func Process(c *gin.Context) {
 	z, _ := strconv.Atoi(c.Param("z"))
 
 	collections := map[string]*geojson.FeatureCollection{}
-	fc := geojson.NewFeatureCollection()
-	fc.Append(geojson.NewFeature(processing.GetMultiPoint(x, y, z)))
-	collections["green"] = fc
+	points := processing.GetMultiPoint(x, y, z)
+
+	fcg, fcy, fco, fcr := geojson.NewFeatureCollection(), geojson.NewFeatureCollection(), geojson.NewFeatureCollection(), geojson.NewFeatureCollection()
+	fcg.Append(geojson.NewFeature(points.Green))
+	fcy.Append(geojson.NewFeature(points.Yellow))
+	fco.Append(geojson.NewFeature(points.Orange))
+	fcr.Append(geojson.NewFeature(points.Red))
+	collections["green"] = fcg
+	collections["yellow"] = fcy
+	collections["orange"] = fco
+	collections["red"] = fcr
 
 	layers := mvt.NewLayers(collections)
 	layers.ProjectToTile(maptile.New(uint32(x), uint32(y), maptile.Zoom(z)))

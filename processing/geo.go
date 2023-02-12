@@ -21,8 +21,15 @@ func snapToGrid(f, size float64) float64 {
 	return float64(int(f/size)) * size
 }
 
-func GetMultiPoint(x, y, z int) orb.MultiPoint {
-	points := orb.MultiPoint{}
+type RenderingPoints struct {
+	Green  orb.MultiPoint
+	Yellow orb.MultiPoint
+	Orange orb.MultiPoint
+	Red    orb.MultiPoint
+}
+
+func GetMultiPoint(x, y, z int) RenderingPoints {
+	points := RenderingPoints{}
 	lat1, lon1 := xyzToLatlon(x, y, z)
 	lat2, lon2 := xyzToLatlon(x+1, y+1, z)
 	if lat1 > lat2 {
@@ -33,9 +40,18 @@ func GetMultiPoint(x, y, z int) orb.MultiPoint {
 	}
 
 	// This is super inefficient, but who cares.
-	for coord := range lcounter[z] {
+	for coord, count := range lcounter[z] {
 		if coord[0] > lon1 && coord[0] <= lon2 && coord[1] > lat1 && coord[1] <= lat2 {
-			points = append(points, orb.Point{coord[0], coord[1]})
+			point := orb.Point{coord[0], coord[1]}
+			if count >= threshold[z][0] {
+				points.Red = append(points.Red, point)
+			} else if count >= threshold[z][1] {
+				points.Orange = append(points.Orange, point)
+			} else if count >= threshold[z][2] {
+				points.Yellow = append(points.Yellow, point)
+			} else {
+				points.Green = append(points.Green, point)
+			}
 		}
 	}
 
