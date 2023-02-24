@@ -28,8 +28,16 @@ type RenderingPoints struct {
 	Red    orb.MultiPoint
 }
 
-func GetMultiPoint(x, y, z int) RenderingPoints {
-	points := RenderingPoints{}
+func GetMultiPoint(sessionId int64, x, y, z int) (points RenderingPoints, ok bool) {
+	var session Session
+	if session, ok = sessions[sessionId]; !ok {
+		return
+	}
+
+	points = RenderingPoints{}
+	if z > MAX_LEVEL {
+		z = MAX_LEVEL
+	}
 	lat1, lon1 := xyzToLatlon(x, y, z)
 	lat2, lon2 := xyzToLatlon(x+1, y+1, z)
 	if lat1 > lat2 {
@@ -40,14 +48,14 @@ func GetMultiPoint(x, y, z int) RenderingPoints {
 	}
 
 	// This is super inefficient, but who cares.
-	for coord, count := range lcounter[z] {
+	for coord, count := range session.LevelCounter[z] {
 		if coord[0] > lon1 && coord[0] <= lon2 && coord[1] > lat1 && coord[1] <= lat2 {
 			point := orb.Point{coord[0], coord[1]}
-			if count >= threshold[z][0] {
+			if count >= session.Threshold[z][0] {
 				points.Red = append(points.Red, point)
-			} else if count >= threshold[z][1] {
+			} else if count >= session.Threshold[z][1] {
 				points.Orange = append(points.Orange, point)
-			} else if count >= threshold[z][2] {
+			} else if count >= session.Threshold[z][2] {
 				points.Yellow = append(points.Yellow, point)
 			} else {
 				points.Green = append(points.Green, point)
@@ -55,5 +63,5 @@ func GetMultiPoint(x, y, z int) RenderingPoints {
 		}
 	}
 
-	return points
+	return
 }
