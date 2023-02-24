@@ -14,12 +14,11 @@ const PERCENT_YELLOW = 60
 const PERCENT_ORANGE = 80
 const PERCENT_RED = 98
 
-var counter map[[2]float64]int
 var lcounter [MAX_LEVEL]map[[2]float64]int
 var threshold [MAX_LEVEL][3]int
 
 func init() {
-	counter = map[[2]float64]int{}
+	counter := map[[2]float64]int{}
 	f, _ := os.Open("data/db/full.csv")
 	defer f.Close()
 
