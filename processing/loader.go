@@ -19,7 +19,7 @@ const MAIN_SESSION_ID = -1
 
 type Session struct {
 	Expiry       int64
-	LevelCounter [MAX_LEVEL]map[[2]float64]int
+	LevelCounter [MAX_LEVEL]map[[2]float64]map[int64]bool
 	Threshold    [MAX_LEVEL][3]int
 }
 
@@ -45,11 +45,15 @@ func LoadSession(t1, t2, sessionId int64, isMain bool) {
 	delete(sessions, sessionId)
 	cleanUp()
 
-	counter := map[[2]float64]int{}
+	counter := map[[2]float64]map[int64]bool{}
 
 	for _, d := range data {
 		if d.timestamp >= t1 && d.timestamp <= t2 {
-			counter[[2]float64{d.x, d.y}]++
+			key := [2]float64{d.x, d.y}
+			if (counter[key] == nil) {
+				counter[key] = map[int64]bool{}
+			}
+			counter[key][timestampToDate(d.timestamp)] = true
 		}
 	}
 
@@ -57,37 +61,52 @@ func LoadSession(t1, t2, sessionId int64, isMain bool) {
 	if !isMain {
 		expiry = time.Now().Add(time.Hour).Unix()
 	}
-	lcounter := [MAX_LEVEL]map[[2]float64]int{}
+	lcounter := [MAX_LEVEL]map[[2]float64]map[int64]bool{}
 	threshold := [MAX_LEVEL][3]int{}
 
 	for i := 0; i < MAX_LEVEL; i++ {
-		lcounter[i] = map[[2]float64]int{}
+		lcounter[i] = map[[2]float64]map[int64]bool{}
 		size := gridSizeAtLevel(i)
-		for coord, cnt := range counter {
-			lcounter[i][[2]float64{snapToGrid(coord[0], size), snapToGrid(coord[1], size)}] += cnt
+		for coord, dates := range counter {
+			for date := range dates {
+				key := [2]float64{snapToGrid(coord[0], size), snapToGrid(coord[1], size)}
+				if (lcounter[i][key] == nil) {
+					lcounter[i][key] = map[int64]bool{}
+				}
+				lcounter[i][key][date] = true
+			}
 		}
 
 		counts := []int{0}
-		for _, count := range lcounter[i] {
-			counts = append(counts, count)
+		for _, dates := range lcounter[i] {
+			counts = append(counts, len(dates))
 		}
 		sort.Ints(counts)
-		greenThreshold := counts[0]
+		greenThreshold := 1
 		yellowThreshold := counts[len(counts)*PERCENT_YELLOW/100]
-		if yellowThreshold == greenThreshold {
-			yellowThreshold += 1
+		if yellowThreshold <= greenThreshold {
+			yellowThreshold = greenThreshold + 1
 		}
 		orangeThreshold := counts[len(counts)*PERCENT_ORANGE/100]
-		if orangeThreshold == yellowThreshold {
-			orangeThreshold += 1
+		if orangeThreshold <= yellowThreshold {
+			orangeThreshold = yellowThreshold + 1
 		}
 		redThreshold := counts[len(counts)*PERCENT_RED/100]
-		if redThreshold == orangeThreshold {
-			redThreshold += 1
+		if redThreshold <= orangeThreshold {
+			redThreshold = orangeThreshold + 1
 		}
 		threshold[i] = [3]int{redThreshold, orangeThreshold, yellowThreshold}
 	}
 	sessions[sessionId] = Session{expiry, lcounter, threshold}
+}
+
+func timestampToDate(timestamp int64) int64 {
+	epoch := time.Unix(0, 0)
+	t := time.Unix(timestamp, 0)
+	difference := t.Sub(epoch)
+	days := int64(difference.Hours() / 24)
+
+	return days
 }
 
 func init() {

@@ -14,11 +14,11 @@ func xyzToLatlon(x, y, z int) (lat float64, lon float64) {
 }
 
 func gridSizeAtLevel(level int) float64 {
-	return 1 / math.Pow(2.0, float64(level+4)) * 268435456 / 10240000
+	return 270.0 / math.Pow(2.0, float64(level+7))
 }
 
 func snapToGrid(f, size float64) float64 {
-	return float64(int(f/size)) * size
+	return math.Round(f/size) * size
 }
 
 type RenderingPoints struct {
@@ -48,14 +48,14 @@ func GetMultiPoint(sessionId int64, x, y, z int) (points RenderingPoints, ok boo
 	}
 
 	// This is super inefficient, but who cares.
-	for coord, count := range session.LevelCounter[z] {
+	for coord, dates := range session.LevelCounter[z] {
 		if coord[0] > lon1 && coord[0] <= lon2 && coord[1] > lat1 && coord[1] <= lat2 {
 			point := orb.Point{coord[0], coord[1]}
-			if count >= session.Threshold[z][0] {
+			if len(dates) >= session.Threshold[z][0] {
 				points.Red = append(points.Red, point)
-			} else if count >= session.Threshold[z][1] {
+			} else if len(dates) >= session.Threshold[z][1] {
 				points.Orange = append(points.Orange, point)
-			} else if count >= session.Threshold[z][2] {
+			} else if len(dates) >= session.Threshold[z][2] {
 				points.Yellow = append(points.Yellow, point)
 			} else {
 				points.Green = append(points.Green, point)
