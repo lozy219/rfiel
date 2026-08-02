@@ -21,11 +21,34 @@ func snapToGrid(f, size float64) float64 {
 	return math.Round(f/size) * size
 }
 
+type TileKey struct {
+	Z, X, Y int
+}
+
+func LonLatToTileXY(lon, lat float64, z int) (x, y int) {
+	n := math.Exp2(float64(z))
+	x = int((lon + 180.0) / 360.0 * n)
+	latRad := lat * math.Pi / 180.0
+	cosLat := math.Cos(latRad)
+	if cosLat == 0 {
+		cosLat = 1e-10
+	}
+	t := math.Tan(latRad) + 1.0/cosLat
+	if t <= 0 {
+		t = 1e-10
+	}
+	y = int((1.0 - math.Log(t)/math.Pi) / 2.0 * n)
+	return x, y
+}
+
+type GridPoint struct {
+	Point orb.Point
+	Count int
+	Tier  int
+}
+
 type RenderingPoints struct {
-	Green  orb.MultiPoint
-	Yellow orb.MultiPoint
-	Orange orb.MultiPoint
-	Red    orb.MultiPoint
+	Points []GridPoint
 }
 
 func GetMultiPoint(sessionId int64, x, y, z int) (points RenderingPoints, ok bool) {
@@ -33,35 +56,9 @@ func GetMultiPoint(sessionId int64, x, y, z int) (points RenderingPoints, ok boo
 	if session, ok = sessions[sessionId]; !ok {
 		return
 	}
-
-	points = RenderingPoints{}
 	if z > MAX_LEVEL {
 		z = MAX_LEVEL
 	}
-	lat1, lon1 := xyzToLatlon(x, y, z)
-	lat2, lon2 := xyzToLatlon(x+1, y+1, z)
-	if lat1 > lat2 {
-		lat1, lat2 = lat2, lat1
-	}
-	if lon1 > lon2 {
-		lon1, lon2 = lon2, lon1
-	}
-
-	// This is super inefficient, but who cares.
-	for coord, dates := range session.LevelCounter[z] {
-		if coord[0] > lon1 && coord[0] <= lon2 && coord[1] > lat1 && coord[1] <= lat2 {
-			point := orb.Point{coord[0], coord[1]}
-			if len(dates) >= session.Threshold[z][0] {
-				points.Red = append(points.Red, point)
-			} else if len(dates) >= session.Threshold[z][1] {
-				points.Orange = append(points.Orange, point)
-			} else if len(dates) >= session.Threshold[z][2] {
-				points.Yellow = append(points.Yellow, point)
-			} else {
-				points.Green = append(points.Green, point)
-			}
-		}
-	}
-
-	return
+	points = session.Tiles[TileKey{Z: z, X: x, Y: y}]
+	return points, true
 }
