@@ -2,8 +2,10 @@ package processing
 
 import (
 	"bufio"
+	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,17 +170,39 @@ func timestampToDate(timestamp int64) int64 {
 }
 
 func init() {
+	start := time.Now()
+	log.Println("[rfiel] Initializing data loader...")
 	sessions = map[int64]Session{}
 
 	data = []DataPoint{}
-	f, err := os.Open("data/db/full.csv")
-	if err != nil {
-		f, err = os.Open("../data/db/full.csv")
+
+	paths := []string{
+		"data/db/full.csv",
+		"../data/db/full.csv",
+	}
+	if exe, err := os.Executable(); err == nil {
+		dir := filepath.Dir(exe)
+		paths = append(paths, filepath.Join(dir, "data/db/full.csv"), filepath.Join(dir, "../data/db/full.csv"))
+	}
+
+	var f *os.File
+	var err error
+	var loadedPath string
+	for _, p := range paths {
+		f, err = os.Open(p)
+		if err == nil {
+			loadedPath = p
+			break
+		}
 	}
 	if err != nil {
+		cwd, _ := os.Getwd()
+		log.Fatalf("[rfiel] FATAL ERROR: could not open data/db/full.csv in CWD (%s) or executable directory: %v", cwd, err)
 		return
 	}
 	defer f.Close()
+
+	log.Printf("[rfiel] Successfully opened dataset from: %s", loadedPath)
 
 	scanner := bufio.NewScanner(f)
 	scanner.Scan()
@@ -191,8 +215,14 @@ func init() {
 		data = append(data, DataPoint{t, x, y})
 	}
 
+	rawCount := len(data)
+	log.Printf("[rfiel] Loaded %d raw GPS records from full.csv", rawCount)
+
 	// Filter out airplane tracks and GPS glitches (avg speed >= 400 km/h within 5 mins)
 	data = filterHighSpeedPoints(data, 400.0, 300)
+	log.Printf("[rfiel] After high-speed flight filtering: %d clean GPS records remain (removed %d flight/glitch points)", len(data), rawCount-len(data))
 
+	log.Println("[rfiel] Indexing main session across 15 zoom levels...")
 	LoadSession(0, time.Now().Unix(), MAIN_SESSION_ID, true)
+	log.Printf("[rfiel] Main session ready! Total initialization time: %v", time.Since(start))
 }
